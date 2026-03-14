@@ -1,0 +1,11 @@
+Flask
+supabase
+python-dotenv
+Flask-Cors
+pydantic
+requests
+gunicorn
+numpy
+pandas
+scikit-learn
+opencv-python
