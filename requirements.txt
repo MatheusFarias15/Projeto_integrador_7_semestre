@@ -1,3 +1,4 @@
+# --- Backend / API (Flask & Supabase) ---
 Flask
 supabase
 python-dotenv
@@ -5,7 +6,14 @@ Flask-Cors
 pydantic
 requests
 gunicorn
+
+# --- Processamento de Dados, Visão Computacional e IA ---
 numpy
 pandas
 scikit-learn
 opencv-python
+scipy         # Adicionado: Necessário para os filtros Savitzky-Golay (tratamento do sinal óptico)
+joblib        # Adicionado: Necessário para carregar o modelo de Machine Learning embarcado
+
+# --- Comunicação de Hardware (Raspberry Pi - I2C) ---
+smbus2        # Adicionado: Biblioteca padrão no Python para comunicação I2C com o sensor

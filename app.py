@@ -1,16 +1,14 @@
 import os
 from flask import Flask, render_template
-# from supabase import create_client, Client
 from dotenv import load_dotenv
+from routes.glucose import glucose_routes 
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# supabase: Client = create_client(
-#     os.environ.get("SUPABASE_URL"),
-#     os.environ.get("SUPABASE_PUBLISHABLE_KEY")
-# )
+# Registrando as rotas no app principal
+app.register_blueprint(glucose_routes)
 
 @app.route('/')
 def index():
