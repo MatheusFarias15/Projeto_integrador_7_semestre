@@ -75,3 +75,41 @@ alto        37
 2026-04-21 10:31:31 | INFO     | ModelVisualizer | Salvo: curvas_roc.png
 2026-04-21 10:31:34 | INFO     | ModelVisualizer | Salvo: importancia_features_classificacao.png
 2026-04-21 10:31:36 | INFO     | ModelVisualizer | Salvo: dashboard_final.png
+2026-05-16 09:26:08 | INFO     | main | ╔══════════════════════════════════════════════════════╗
+2026-05-16 09:26:08 | INFO     | main | ║   GLUCOSE ML PIPELINE — Pandas + sklearn + XGBoost  ║
+2026-05-16 09:26:08 | INFO     | main | ╚══════════════════════════════════════════════════════╝
+2026-05-16 09:26:08 | INFO     | GlucoseDataLoader | Carregando: Teste_ML_balanceado.csv
+2026-05-16 09:26:08 | INFO     | GlucoseDataLoader | Sem valores ausentes.
+2026-05-16 09:26:08 | INFO     | GlucoseDataLoader | Shape: (500, 13) | Colunas: ['data', 'passos', 'sono_horas', 'humor', 'kcal', 'carboidrato', 'proteina', 'gordura', 'agua_ml', 'treino', 'deficit_kcal', 'glicose', 'classe_glicose']
+2026-05-16 09:26:08 | INFO     | FeatureEngineer | Features (10): ['passos', 'sono_horas', 'humor', 'kcal', 'carboidrato', 'proteina', 'gordura', 'agua_ml', 'treino', 'deficit_kcal']
+2026-05-16 09:26:08 | INFO     | FeatureEngineer | Sem multicolinearidade acima de 0.85.
+2026-05-16 09:26:10 | INFO     | RegressionComparator | Split: 400 treino | 100 teste
+2026-05-16 09:26:10 | INFO     | RegressionComparator | ─── Treinando Regressão: GBT ───
+2026-05-16 09:26:25 | INFO     | RegressionComparator | GBT → R²=0.8995 | RMSE=4.2221 | MAE=3.6111
+2026-05-16 09:26:25 | INFO     | RegressionComparator | ─── Treinando Regressão: XGBoost ───
+2026-05-16 09:26:29 | INFO     | RegressionComparator | XGBoost → R²=0.9053 | RMSE=4.0980 | MAE=3.5138
+2026-05-16 09:26:29 | INFO     | RegressionComparator | ─── Treinando Regressão: RandomForest ───
+2026-05-16 09:26:44 | INFO     | RegressionComparator | RandomForest → R²=0.8759 | RMSE=4.6925 | MAE=4.0583
+2026-05-16 09:26:44 | INFO     | RegressionComparator | 🏆 MELHOR REGRESSÃO: XGBoost (R²=0.9053)
+2026-05-16 09:26:44 | INFO     | ClassificationComparator | Distribuição de classes:
+glicose
+elevado    283
+normal     180
+alto        37
+2026-05-16 09:26:44 | INFO     | ClassificationComparator | ─── Treinando Classificação: RandomForest ───
+2026-05-16 09:26:53 | INFO     | ClassificationComparator | RandomForest → Acc=0.8600 | F1=0.8372 | AUC=0.9547
+2026-05-16 09:26:53 | INFO     | ClassificationComparator | ─── Treinando Classificação: XGBoost ───
+2026-05-16 09:26:58 | INFO     | ClassificationComparator | XGBoost → Acc=0.8300 | F1=0.7644 | AUC=0.9496
+2026-05-16 09:26:58 | INFO     | ClassificationComparator | ─── Treinando Classificação: LogisticRegression ───
+2026-05-16 09:27:00 | INFO     | ClassificationComparator | LogisticRegression → Acc=0.8600 | F1=0.8276 | AUC=0.9694
+2026-05-16 09:27:00 | INFO     | ClassificationComparator | 🏆 MELHOR CLASSIFICAÇÃO: RandomForest (Acc=0.8600)
+2026-05-16 09:27:01 | INFO     | ModelVisualizer | Salvo: comparacao_regressao.png
+2026-05-16 09:27:02 | INFO     | ModelVisualizer | Salvo: comparacao_classificacao.png
+2026-05-16 09:27:02 | INFO     | ModelVisualizer | Salvo: comparacao_classificacao.png
+2026-05-16 09:27:02 | INFO     | ModelVisualizer | Salvo: comparacao_classificacao.png
+2026-05-16 09:27:03 | INFO     | ModelVisualizer | Salvo: residuos_melhor_regressor.png
+2026-05-16 09:27:04 | INFO     | ModelVisualizer | Salvo: importancia_features_regressao.png
+2026-05-16 09:27:04 | INFO     | ModelVisualizer | Salvo: matriz_confusao.png
+2026-05-16 09:27:05 | INFO     | ModelVisualizer | Salvo: curvas_roc.png
+2026-05-16 09:27:07 | INFO     | ModelVisualizer | Salvo: importancia_features_classificacao.png
+2026-05-16 09:27:09 | INFO     | ModelVisualizer | Salvo: dashboard_final.png

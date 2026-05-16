@@ -17,3 +17,7 @@ joblib        # Adicionado: Necessário para carregar o modelo de Machine Learni
 
 # --- Comunicação de Hardware (Raspberry Pi - I2C) ---
 smbus2        # Adicionado: Biblioteca padrão no Python para comunicação I2C com o sensor
+
+# --- Dashboard Streamlit e Banco de Dados ---
+streamlit     # Adicionado: Framework para criar dashboards interativos
+SQLAlchemy    # Adicionado: ORM para gerenciar banco de dados SQLite

@@ -1,0 +1,100 @@
+🚀 COMECE AQUI - INSTRUÇÕES RÁPIDAS
+====================================
+
+Siga estes passos simples para rodar o Dashboard de Saúde:
+
+
+PASSO 1: Instalar Dependências
+------------------------------
+Abra o Terminal/PowerShell na pasta do projeto e execute:
+
+    pip install -r requirements.txt
+
+⏱️  Isso pode levar alguns minutos na primeira vez.
+
+
+PASSO 2: (OPCIONAL) Adicionar Dados de Exemplo
+----------------------------------------------
+Para testar o dashboard com dados, execute:
+
+    python manage_data.py
+
+Escolha a opção 1 para criar 30 dias de dados de exemplo.
+Você pode pular este passo se preferir começar com dados em branco.
+
+
+PASSO 3: Executar o Dashboard
+-----------------------------
+Execute um dos comandos abaixo:
+
+Opção A - Modo Interativo (Recomendado para primeira vez):
+    python run_dashboard.py
+
+Opção B - Direto com Streamlit:
+    streamlit run dashboard.py
+
+✅ O navegador abrirá automaticamente em: http://localhost:8501
+
+
+USANDO O DASHBOARD
+==================
+
+📝 ABA "Formulário"
+  • Selecione seu estilo de vida (Sedentário, Normal, Muito Ativo)
+  • Veja valores sugeridos aparecerem automaticamente
+  • Preencha os campos (você pode editar os valores sugeridos)
+  • Clique em "Salvar Registro"
+
+📈 ABA "Dashboard"  
+  • Veja gráficos da evolução de Passos, Calorias, Sono e Água
+  • Visualize estatísticas gerais (médias)
+
+📋 ABA "Histórico"
+  • Veja tabela com todos os registros
+  • Use filtros para ver dados específicos
+  • Baixe CSV para análises externas
+
+
+ESTRUTURA DE ARQUIVOS
+====================
+
+dashboard.py              → Arquivo principal da aplicação
+run_dashboard.py          → Script interativo para executar
+manage_data.py            → Gerenciador de dados (criar exemplos, limpar, etc)
+health_database.db        → Banco de dados (criado automaticamente)
+requirements.txt          → Dependências do projeto
+DASHBOARD_README.md       → Documentação completa
+
+
+TROUBLESHOOTING
+===============
+
+❌ "Command not found: streamlit"
+   → Execute: pip install streamlit
+
+❌ "ModuleNotFoundError: No module named 'sqlalchemy'"
+   → Execute: pip install SQLAlchemy
+
+❌ A porta 8501 já está em uso
+   → Execute: streamlit run dashboard.py --server.port 8502
+
+❌ Nada aparece no navegador
+   → Abra manualmente: http://localhost:8501
+
+
+PRECISA DE AJUDA?
+=================
+
+1. Verifique o arquivo DASHBOARD_README.md para documentação completa
+2. Certifique-se que tem Python 3.8+ instalado: python --version
+3. Reinstale as dependências: pip install --upgrade -r requirements.txt
+
+
+PRONTO! 🎉
+===========
+
+Você está pronto para usar o Dashboard de Saúde!
+
+Comece preenchendo o formulário e acompanhe sua evolução ao longo do tempo.
+
+Divirta-se! 💪
