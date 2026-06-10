@@ -42,13 +42,31 @@ class GlucoseTrainer:
     # Features usadas para treinamento
     FEATURE_COLUMNS = [
         'bpm',
+        'spo2',
         'dc_ir',
         'ac_ir',
+        'ir_max30102',
+        'red_max30102',
         'transmitancia_dc',
         'transmitancia_ac',
+        'bpw34_raw',
+        'bpw34_voltage',
+        'bpw34_current',
+        'bpw34_ac',
+        'bpw34_dc',
+        'bpw34_rms',
+        'bpw34_peak',
+        'bpw34_mean',
+        'ir_940_intensity',
+        'ir_940_transmittance',
+        'red_660',
+        'temperatura',
+        'transmittance',
+        'absorbance',
         'ratio_ir_trans',
         'pulsatile_index',
         'ir_ratio',
+        'ratio_ir_bpw34',
         'idade',
         'peso',
         'altura',
@@ -91,15 +109,22 @@ class GlucoseTrainer:
             X, y: Features e target
         """
         # Filtrar colunas válidas e remover NaN
-        valid_features = [col for col in self.FEATURE_COLUMNS if col in df.columns]
+        valid_features = [
+            col for col in self.FEATURE_COLUMNS
+            if col in df.columns and df[col].notna().any()
+        ]
+
+        if not valid_features:
+            raise ValueError("Nenhuma feature valida encontrada para treinamento")
         
         # Usar apenas registros com glicose real (supervisionado)
-        df_clean = df[valid_features + [self.TARGET_COLUMN]].dropna()
+        df_clean = df[valid_features + [self.TARGET_COLUMN]].dropna(subset=[self.TARGET_COLUMN]).copy()
         
         if len(df_clean) < 10:
             raise ValueError(f"Dados insuficientes: apenas {len(df_clean)} registros válidos")
         
-        X = df_clean[valid_features]
+        X = df_clean[valid_features].apply(pd.to_numeric, errors='coerce')
+        X = X.fillna(X.median(numeric_only=True)).fillna(0)
         y = df_clean[self.TARGET_COLUMN]
         
         # Normalizar features
@@ -184,24 +209,31 @@ class GlucoseTrainer:
         """
         importance = {}
         feature_names = self.X_train.columns.tolist()
+
+        def normalize(scores: np.ndarray) -> np.ndarray:
+            scores = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
+            total = np.sum(scores)
+            if total == 0:
+                return scores
+            return scores / total
         
         # 1. Correlação de Pearson
         pearson_corr = np.array([
             abs(pearsonr(self.X_train[feat], self.y_train)[0])
             for feat in feature_names
         ])
-        importance['pearson'] = pearson_corr / np.sum(pearson_corr)
+        importance['pearson'] = normalize(pearson_corr)
         
         # 2. Correlação de Spearman
         spearman_corr = np.array([
             abs(spearmanr(self.X_train[feat], self.y_train)[0])
             for feat in feature_names
         ])
-        importance['spearman'] = spearman_corr / np.sum(spearman_corr)
+        importance['spearman'] = normalize(spearman_corr)
         
         # 3. Informação Mútua
         mi_scores = mutual_info_regression(self.X_train, self.y_train, random_state=self.random_state)
-        importance['mutual_info'] = mi_scores / np.sum(mi_scores)
+        importance['mutual_info'] = normalize(mi_scores)
         
         # 4. Feature Importance do modelo
         if hasattr(model, 'feature_importances_'):
@@ -219,7 +251,7 @@ class GlucoseTrainer:
             shap_values = explainer.shap_values(self.X_test.iloc[:100])
             if isinstance(shap_values, list):
                 shap_values = shap_values[0]
-            importance['shap'] = np.abs(shap_values).mean(axis=0) / np.abs(shap_values).mean()
+            importance['shap'] = normalize(np.abs(shap_values).mean(axis=0))
         except Exception as e:
             print(f"Aviso: SHAP falhou para {model_name}: {str(e)}")
         

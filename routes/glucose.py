@@ -1,9 +1,10 @@
 import json
+import math
 from datetime import datetime
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -41,15 +42,33 @@ class MLTrainingData(Base):
 
     # Sensores
     bpm = Column(Float, nullable=True)
+    spo2 = Column(Float, nullable=True)
     dc_ir = Column(Float, nullable=True)
     ac_ir = Column(Float, nullable=True)
+    ir_max30102 = Column(Float, nullable=True)
+    red_max30102 = Column(Float, nullable=True)
     transmitancia_dc = Column(Float, nullable=True)
     transmitancia_ac = Column(Float, nullable=True)
+    bpw34_raw = Column(Float, nullable=True)
+    bpw34_voltage = Column(Float, nullable=True)
+    bpw34_current = Column(Float, nullable=True)
+    bpw34_ac = Column(Float, nullable=True)
+    bpw34_dc = Column(Float, nullable=True)
+    bpw34_rms = Column(Float, nullable=True)
+    bpw34_peak = Column(Float, nullable=True)
+    bpw34_mean = Column(Float, nullable=True)
+    ir_940_intensity = Column(Float, nullable=True)
+    ir_940_transmittance = Column(Float, nullable=True)
+    red_660 = Column(Float, nullable=True)
+    temperatura = Column(Float, nullable=True)
 
     # Features calculadas
+    transmittance = Column(Float, nullable=True)
+    absorbance = Column(Float, nullable=True)
     ratio_ir_trans = Column(Float, nullable=True)
     pulsatile_index = Column(Float, nullable=True)
     ir_ratio = Column(Float, nullable=True)
+    ratio_ir_bpw34 = Column(Float, nullable=True)
 
     # Dados do usuário
     idade = Column(Integer, nullable=True)
@@ -69,11 +88,155 @@ class MLTrainingData(Base):
     erro_percentual = Column(Float, nullable=True)
 
 
+class OpticalRawData(Base):
+    """Tabela bruta para preservar leituras opticas do hardware."""
+    __tablename__ = "optical_raw_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    ml_training_data_id = Column(Integer, nullable=True)
+
+    bpw34_raw = Column(Float, nullable=True)
+    bpw34_voltage = Column(Float, nullable=True)
+    ir_940 = Column(Float, nullable=True)
+    red_660 = Column(Float, nullable=True)
+    bpm = Column(Float, nullable=True)
+    spo2 = Column(Float, nullable=True)
+    glicose_real = Column(Float, nullable=True)
+
+
 def get_db_session():
     return SessionLocal()
 
 
 Base.metadata.create_all(bind=engine)
+
+
+ML_TRAINING_EXTRA_COLUMNS = {
+    "spo2": "FLOAT",
+    "ir_max30102": "FLOAT",
+    "red_max30102": "FLOAT",
+    "bpw34_raw": "FLOAT",
+    "bpw34_voltage": "FLOAT",
+    "bpw34_current": "FLOAT",
+    "bpw34_ac": "FLOAT",
+    "bpw34_dc": "FLOAT",
+    "bpw34_rms": "FLOAT",
+    "bpw34_peak": "FLOAT",
+    "bpw34_mean": "FLOAT",
+    "ir_940_intensity": "FLOAT",
+    "ir_940_transmittance": "FLOAT",
+    "red_660": "FLOAT",
+    "temperatura": "FLOAT",
+    "transmittance": "FLOAT",
+    "absorbance": "FLOAT",
+    "ratio_ir_bpw34": "FLOAT",
+}
+
+
+def migrate_sqlite_schema() -> None:
+    """Adiciona colunas novas em bancos SQLite existentes sem apagar dados."""
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    if "ml_training_data" in existing_tables:
+        existing_columns = {col["name"] for col in inspector.get_columns("ml_training_data")}
+        with engine.begin() as conn:
+            for column_name, column_type in ML_TRAINING_EXTRA_COLUMNS.items():
+                if column_name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE ml_training_data ADD COLUMN {column_name} {column_type}"))
+
+
+def safe_float(value):
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def compute_derived_features(data: dict) -> dict:
+    """Calcula features opticas derivadas preservando compatibilidade com nomes antigos."""
+    result = dict(data)
+
+    received_light = safe_float(
+        result.get("ir_940_transmittance")
+        or result.get("bpw34_voltage")
+        or result.get("bpw34_dc")
+        or result.get("transmitancia_dc")
+    )
+    emitted_light = safe_float(result.get("ir_940_intensity") or result.get("ir_max30102") or result.get("dc_ir"))
+    if received_light is not None and emitted_light and emitted_light > 0:
+        transmittance = received_light / emitted_light
+        result["transmittance"] = transmittance
+        if transmittance > 0:
+            result["absorbance"] = -math.log10(transmittance)
+
+    ac_component = safe_float(result.get("bpw34_ac") or result.get("transmitancia_ac"))
+    dc_component = safe_float(result.get("bpw34_dc") or result.get("transmitancia_dc"))
+    if ac_component is not None and dc_component:
+        result["pulsatile_index"] = ac_component / dc_component
+
+    transmitancia_ac = safe_float(result.get("transmitancia_ac"))
+    ac_ir = safe_float(result.get("ac_ir"))
+    if transmitancia_ac is not None and ac_ir:
+        result["ratio_ir_trans"] = transmitancia_ac / ac_ir
+
+    dc_ir = safe_float(result.get("dc_ir"))
+    if ac_ir is not None and dc_ir:
+        result["ir_ratio"] = ac_ir / dc_ir
+
+    ir_940 = safe_float(result.get("ir_940_intensity"))
+    bpw34_voltage = safe_float(result.get("bpw34_voltage"))
+    if ir_940 is not None and bpw34_voltage:
+        result["ratio_ir_bpw34"] = ir_940 / bpw34_voltage
+
+    return result
+
+
+def apply_payload_to_record(record: MLTrainingData, data: dict) -> MLTrainingData:
+    allowed_fields = [
+        "bpm", "spo2", "dc_ir", "ac_ir", "ir_max30102", "red_max30102",
+        "transmitancia_dc", "transmitancia_ac", "bpw34_raw", "bpw34_voltage",
+        "bpw34_current", "bpw34_ac", "bpw34_dc", "bpw34_rms", "bpw34_peak",
+        "bpw34_mean", "ir_940_intensity", "ir_940_transmittance", "red_660",
+        "temperatura", "transmittance", "absorbance", "ratio_ir_trans",
+        "pulsatile_index", "ir_ratio", "ratio_ir_bpw34", "idade", "peso",
+        "altura", "sexo", "ultima_refeicao_horas", "atividade_recente",
+        "glicose_real", "glicose_estimada",
+    ]
+
+    data = compute_derived_features(data)
+    for field in allowed_fields:
+        if field in data:
+            value = data[field]
+            setattr(record, field, value if field == "sexo" else safe_float(value))
+
+    if record.peso and record.altura:
+        record.imc = record.peso / (record.altura ** 2)
+
+    if record.glicose_real and record.glicose_estimada:
+        record.erro_absoluto = abs(record.glicose_real - record.glicose_estimada)
+        if record.glicose_real != 0:
+            record.erro_percentual = (record.erro_absoluto / record.glicose_real) * 100
+
+    return record
+
+
+def create_optical_raw_row(record: MLTrainingData) -> OpticalRawData:
+    return OpticalRawData(
+        ml_training_data_id=record.id,
+        bpw34_raw=record.bpw34_raw,
+        bpw34_voltage=record.bpw34_voltage,
+        ir_940=record.ir_940_intensity,
+        red_660=record.red_660,
+        bpm=record.bpm,
+        spo2=record.spo2,
+        glicose_real=record.glicose_real,
+    )
+
+
+migrate_sqlite_schema()
 
 
 # Rota GET existente para ler os dados
@@ -154,27 +317,13 @@ def add_sensor_reading():
 
         db = get_db_session()
         
-        new_reading = MLTrainingData(
-            bpm=data.get("bpm"),
-            dc_ir=data.get("dc_ir"),
-            ac_ir=data.get("ac_ir"),
-            transmitancia_dc=data.get("transmitancia_dc"),
-            transmitancia_ac=data.get("transmitancia_ac"),
-        )
-
-        # Calcular features
-        if new_reading.transmitancia_ac and new_reading.ac_ir and new_reading.ac_ir != 0:
-            new_reading.ratio_ir_trans = new_reading.transmitancia_ac / new_reading.ac_ir
-
-        if new_reading.transmitancia_ac and new_reading.transmitancia_dc and new_reading.transmitancia_dc != 0:
-            new_reading.pulsatile_index = new_reading.transmitancia_ac / new_reading.transmitancia_dc
-
-        if new_reading.ac_ir and new_reading.dc_ir and new_reading.dc_ir != 0:
-            new_reading.ir_ratio = new_reading.ac_ir / new_reading.dc_ir
+        new_reading = apply_payload_to_record(MLTrainingData(), data)
 
         db.add(new_reading)
         db.commit()
         db.refresh(new_reading)
+        db.add(create_optical_raw_row(new_reading))
+        db.commit()
 
         return jsonify({
             "message": "Leitura de sensor salva com sucesso!",
@@ -201,44 +350,13 @@ def add_training_data():
 
         db = get_db_session()
 
-        new_record = MLTrainingData(
-            bpm=data.get("bpm"),
-            dc_ir=data.get("dc_ir"),
-            ac_ir=data.get("ac_ir"),
-            transmitancia_dc=data.get("transmitancia_dc"),
-            transmitancia_ac=data.get("transmitancia_ac"),
-            idade=data.get("idade"),
-            peso=data.get("peso"),
-            altura=data.get("altura"),
-            sexo=data.get("sexo"),
-            ultima_refeicao_horas=data.get("ultima_refeicao_horas"),
-            atividade_recente=data.get("atividade_recente"),
-            glicose_real=data.get("glicose_real"),
-            glicose_estimada=data.get("glicose_estimada"),
-        )
-
-        # Calcular features
-        if new_record.transmitancia_ac and new_record.ac_ir and new_record.ac_ir != 0:
-            new_record.ratio_ir_trans = new_record.transmitancia_ac / new_record.ac_ir
-
-        if new_record.transmitancia_ac and new_record.transmitancia_dc and new_record.transmitancia_dc != 0:
-            new_record.pulsatile_index = new_record.transmitancia_ac / new_record.transmitancia_dc
-
-        if new_record.ac_ir and new_record.dc_ir and new_record.dc_ir != 0:
-            new_record.ir_ratio = new_record.ac_ir / new_record.dc_ir
-
-        if new_record.peso and new_record.altura and new_record.altura != 0:
-            new_record.imc = new_record.peso / (new_record.altura ** 2)
-
-        # Calcular erros
-        if new_record.glicose_real and new_record.glicose_estimada:
-            new_record.erro_absoluto = abs(new_record.glicose_real - new_record.glicose_estimada)
-            if new_record.glicose_real != 0:
-                new_record.erro_percentual = (new_record.erro_absoluto / new_record.glicose_real) * 100
+        new_record = apply_payload_to_record(MLTrainingData(), data)
 
         db.add(new_record)
         db.commit()
         db.refresh(new_record)
+        db.add(create_optical_raw_row(new_record))
+        db.commit()
 
         return jsonify({
             "message": "Dados de treinamento salvos com sucesso!",
@@ -270,13 +388,31 @@ def get_training_data():
                 "id": r.id,
                 "created_at": r.created_at.isoformat(),
                 "bpm": r.bpm,
+                "spo2": r.spo2,
                 "dc_ir": r.dc_ir,
                 "ac_ir": r.ac_ir,
+                "ir_max30102": r.ir_max30102,
+                "red_max30102": r.red_max30102,
                 "transmitancia_dc": r.transmitancia_dc,
                 "transmitancia_ac": r.transmitancia_ac,
+                "bpw34_raw": r.bpw34_raw,
+                "bpw34_voltage": r.bpw34_voltage,
+                "bpw34_current": r.bpw34_current,
+                "bpw34_ac": r.bpw34_ac,
+                "bpw34_dc": r.bpw34_dc,
+                "bpw34_rms": r.bpw34_rms,
+                "bpw34_peak": r.bpw34_peak,
+                "bpw34_mean": r.bpw34_mean,
+                "ir_940_intensity": r.ir_940_intensity,
+                "ir_940_transmittance": r.ir_940_transmittance,
+                "red_660": r.red_660,
+                "temperatura": r.temperatura,
+                "transmittance": r.transmittance,
+                "absorbance": r.absorbance,
                 "ratio_ir_trans": r.ratio_ir_trans,
                 "pulsatile_index": r.pulsatile_index,
                 "ir_ratio": r.ir_ratio,
+                "ratio_ir_bpw34": r.ratio_ir_bpw34,
                 "idade": r.idade,
                 "peso": r.peso,
                 "altura": r.altura,
@@ -314,34 +450,18 @@ def update_training_data(record_id):
         if not record:
             return jsonify({"error": "Registro não encontrado"}), 404
 
-        # Atualizar campos
-        if "glicose_real" in data:
-            record.glicose_real = data["glicose_real"]
-        if "idade" in data:
-            record.idade = data["idade"]
-        if "peso" in data:
-            record.peso = data["peso"]
-        if "altura" in data:
-            record.altura = data["altura"]
-        if "sexo" in data:
-            record.sexo = data["sexo"]
-        if "ultima_refeicao_horas" in data:
-            record.ultima_refeicao_horas = data["ultima_refeicao_horas"]
-        if "atividade_recente" in data:
-            record.atividade_recente = data["atividade_recente"]
-
-        # Recalcular IMC
-        if record.peso and record.altura and record.altura != 0:
-            record.imc = record.peso / (record.altura ** 2)
-
-        # Recalcular erros
-        if record.glicose_real and record.glicose_estimada:
-            record.erro_absoluto = abs(record.glicose_real - record.glicose_estimada)
-            if record.glicose_real != 0:
-                record.erro_percentual = (record.erro_absoluto / record.glicose_real) * 100
+        apply_payload_to_record(record, data)
 
         db.commit()
         db.refresh(record)
+        raw_record = db.query(OpticalRawData).filter(
+            OpticalRawData.ml_training_data_id == record.id
+        ).first()
+        if raw_record:
+            raw_record.glicose_real = record.glicose_real
+        else:
+            db.add(create_optical_raw_row(record))
+        db.commit()
 
         return jsonify({
             "message": "Registro atualizado com sucesso!",

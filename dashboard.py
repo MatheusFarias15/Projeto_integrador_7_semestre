@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, Column, Integer, Float, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from pathlib import Path
+from pages_training_ai import render_ai_training_section
 
 # ============================================================================
 # CONFIGURAÇÃO STREAMLIT
@@ -283,7 +284,7 @@ def main():
     st.markdown("---")
 
     # Abas principais
-    tab1, tab2, tab3 = st.tabs(["📝 Formulário", "📈 Dashboard", "📋 Histórico"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📝 Formulário", "📈 Dashboard", "📋 Histórico", "🤖 Atualizar ML"])
 
     # ========================================================================
     # ABA 1: FORMULÁRIO COM PREVISÃO DE GLICOSE
@@ -593,8 +594,9 @@ def main():
     # ========================================================================
     # RODAPÉ
     # ========================================================================
+    with tab4:
+        render_ai_training_section()
 
-    st.markdown("---")
     col1, col2, col3 = st.columns(3)
 
     with col1:

@@ -10,6 +10,7 @@ Este script carrega dados da tabela ml_training_data e treina modelos de IA.
 
 import sys
 import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -50,13 +51,31 @@ def load_training_data() -> pd.DataFrame:
     for record in records:
         data.append({
             'bpm': record.bpm,
+            'spo2': record.spo2,
             'dc_ir': record.dc_ir,
             'ac_ir': record.ac_ir,
+            'ir_max30102': record.ir_max30102,
+            'red_max30102': record.red_max30102,
             'transmitancia_dc': record.transmitancia_dc,
             'transmitancia_ac': record.transmitancia_ac,
+            'bpw34_raw': record.bpw34_raw,
+            'bpw34_voltage': record.bpw34_voltage,
+            'bpw34_current': record.bpw34_current,
+            'bpw34_ac': record.bpw34_ac,
+            'bpw34_dc': record.bpw34_dc,
+            'bpw34_rms': record.bpw34_rms,
+            'bpw34_peak': record.bpw34_peak,
+            'bpw34_mean': record.bpw34_mean,
+            'ir_940_intensity': record.ir_940_intensity,
+            'ir_940_transmittance': record.ir_940_transmittance,
+            'red_660': record.red_660,
+            'temperatura': record.temperatura,
+            'transmittance': record.transmittance,
+            'absorbance': record.absorbance,
             'ratio_ir_trans': record.ratio_ir_trans,
             'pulsatile_index': record.pulsatile_index,
             'ir_ratio': record.ir_ratio,
+            'ratio_ir_bpw34': record.ratio_ir_bpw34,
             'idade': record.idade,
             'peso': record.peso,
             'altura': record.altura,
@@ -163,10 +182,25 @@ def main():
     model_path = trainer.save_model(best_model_name)
     scaler_path = trainer.save_scaler()
     report_path = trainer.save_report()
+
+    latest_model_path = MODELS_DIR / "hardware_glucose_model_latest.pkl"
+    latest_scaler_path = MODELS_DIR / "hardware_glucose_scaler_latest.pkl"
+    latest_features_path = MODELS_DIR / "hardware_feature_names_latest.json"
+    latest_report_path = MODELS_DIR / "hardware_training_report_latest.json"
+
+    shutil.copyfile(model_path, latest_model_path)
+    shutil.copyfile(scaler_path, latest_scaler_path)
+    shutil.copyfile(report_path, latest_report_path)
+    with open(latest_features_path, "w", encoding="utf-8") as f:
+        json.dump(trainer.X_train.columns.tolist(), f, indent=2, ensure_ascii=False)
     
     print(f"     Modelo: {model_path}")
     print(f"     Scaler: {scaler_path}")
     print(f"     Relatório: {report_path}")
+    print(f"     Alias modelo hardware: {latest_model_path}")
+    print(f"     Alias scaler hardware: {latest_scaler_path}")
+    print(f"     Alias features hardware: {latest_features_path}")
+    print(f"     Alias relatorio hardware: {latest_report_path}")
     
     print()
     print("=" * 70)

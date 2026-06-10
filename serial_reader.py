@@ -1,4 +1,5 @@
 import json
+import math
 import time
 import os
 import requests
@@ -61,13 +62,35 @@ def build_sensor_payload(sensor_data: dict) -> dict:
     Cria o JSON para enviar a um novo endpoint /sensor-reading (para IA).
     Mapeia chaves do ESP32 para campos esperados.
     """
-    # Mapeamento de nomes do ESP32 para nomes esperados
     mapping = {
         'BPM': 'bpm',
+        'SpO2': 'spo2',
+        'SPO2': 'spo2',
         'DC_IR': 'dc_ir',
         'AC_IR_Limpo': 'ac_ir',
+        'IR_MAX30102': 'ir_max30102',
+        'MAX30102_IR': 'ir_max30102',
+        'RED_MAX30102': 'red_max30102',
+        'MAX30102_RED': 'red_max30102',
         'Transmitancia_DC': 'transmitancia_dc',
         'Transmitancia_AC': 'transmitancia_ac',
+        'BPW34_RAW': 'bpw34_raw',
+        'BPW34_Raw': 'bpw34_raw',
+        'BPW34_VOLTAGE': 'bpw34_voltage',
+        'BPW34_Voltage': 'bpw34_voltage',
+        'BPW34_CURRENT': 'bpw34_current',
+        'BPW34_AC': 'bpw34_ac',
+        'BPW34_DC': 'bpw34_dc',
+        'BPW34_RMS': 'bpw34_rms',
+        'BPW34_PEAK': 'bpw34_peak',
+        'BPW34_MEAN': 'bpw34_mean',
+        'IR_940': 'ir_940_intensity',
+        'IR_940_INTENSITY': 'ir_940_intensity',
+        'IR_940_TRANSMITTANCE': 'ir_940_transmittance',
+        'RED_660': 'red_660',
+        'Temperatura': 'temperatura',
+        'TEMPERATURA': 'temperatura',
+        'Temperature': 'temperatura',
     }
     
     payload = {}
@@ -77,6 +100,33 @@ def build_sensor_payload(sensor_data: dict) -> dict:
                 payload[api_key] = float(sensor_data[esp32_key])
             except (ValueError, TypeError):
                 payload[api_key] = None
+
+    received_light = (
+        payload.get("ir_940_transmittance")
+        or payload.get("bpw34_voltage")
+        or payload.get("bpw34_dc")
+        or payload.get("transmitancia_dc")
+    )
+    emitted_light = payload.get("ir_940_intensity") or payload.get("ir_max30102") or payload.get("dc_ir")
+    if received_light is not None and emitted_light and emitted_light > 0:
+        transmittance = received_light / emitted_light
+        payload["transmittance"] = transmittance
+        if transmittance > 0:
+            payload["absorbance"] = -math.log10(transmittance)
+
+    ac_component = payload.get("bpw34_ac") or payload.get("transmitancia_ac")
+    dc_component = payload.get("bpw34_dc") or payload.get("transmitancia_dc")
+    if ac_component is not None and dc_component:
+        payload["pulsatile_index"] = ac_component / dc_component
+
+    if payload.get("transmitancia_ac") is not None and payload.get("ac_ir"):
+        payload["ratio_ir_trans"] = payload["transmitancia_ac"] / payload["ac_ir"]
+
+    if payload.get("ac_ir") is not None and payload.get("dc_ir"):
+        payload["ir_ratio"] = payload["ac_ir"] / payload["dc_ir"]
+
+    if payload.get("ir_940_intensity") is not None and payload.get("bpw34_voltage"):
+        payload["ratio_ir_bpw34"] = payload["ir_940_intensity"] / payload["bpw34_voltage"]
     
     return payload
 
@@ -153,7 +203,7 @@ def main() -> None:
                     print(f"DEBUG: current_data={current_data}")
 
                 # Envia quando a última linha esperada chegar
-                if key == "Transmitancia_AC":
+                if key in {"Transmitancia_AC", "BPW34_MEAN", "BPW34_Peak", "IR_940_TRANSMITTANCE"}:
                     try:
                         # Envia para novo endpoint /sensor-reading (IA)
                         send_sensor_reading(current_data)
