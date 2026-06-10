@@ -1,6 +1,5 @@
 # --- Backend / API (Flask & Supabase) ---
 Flask
-supabase
 python-dotenv
 Flask-Cors
 pydantic
@@ -14,6 +13,10 @@ scikit-learn
 opencv-python
 scipy         # Adicionado: Necessário para os filtros Savitzky-Golay (tratamento do sinal óptico)
 joblib        # Adicionado: Necessário para carregar o modelo de Machine Learning embarcado
+xgboost       # Adicionado: Gradient Boosting para modelos de IA
+matplotlib    # Adicionado: Visualização de gráficos científicos
+seaborn       # Adicionado: Visualização estatística avançada
+shap          # Adicionado: Explicabilidade de modelos (Feature Importance)
 
 # --- Comunicação de Hardware (Raspberry Pi - I2C) ---
 smbus2        # Adicionado: Biblioteca padrão no Python para comunicação I2C com o sensor
@@ -21,3 +24,4 @@ smbus2        # Adicionado: Biblioteca padrão no Python para comunicação I2C 
 # --- Dashboard Streamlit e Banco de Dados ---
 streamlit     # Adicionado: Framework para criar dashboards interativos
 SQLAlchemy    # Adicionado: ORM para gerenciar banco de dados SQLite
+pyserial      # Adicionado: Leitura serial do Arduino/ESP/Raspberry Pi
