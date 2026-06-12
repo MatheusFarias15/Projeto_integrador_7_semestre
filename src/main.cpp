@@ -2,12 +2,12 @@
 #include <Wire.h>
 #include <SPI.h> 
 #include "MAX30105.h"
-#include <Adafruit_ADS1X15.h> // A biblioteca que você adicionou no .ini
+#include <Adafruit_ADS1X15.h> 
 
 MAX30105 particleSensor;
 Adafruit_ADS1115 ads; // Inicializa o ADC de precisão (Endereço I2C padrão 0x48)
 
-// Pino de disparo do Canhão Infravermelho (LED 3W)
+// Pino de disparo do Emissor Infravermelho via MOSFET
 const int pinoMosfet = 4;
 
 // Variáveis de Filtro DC e AC (MAX30105)
@@ -32,7 +32,7 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(21, 22);
 
-  // Trava de segurança: LED 3W começa desligado!
+  // Configura o pino do MOSFET e inicia com o emissor desligado.
   pinMode(pinoMosfet, OUTPUT);
   digitalWrite(pinoMosfet, LOW);
 
@@ -46,15 +46,17 @@ void setup() {
     while (1);
   }
 
-  // Configuração do ganho do ADS1115 (Lê até +/- 6.144V)
-  // Perfeito para o sinal de até 3.3V que virá do MCP6002
+  // Configuração do ganho do ADS1115 (Ajuste conforme a sua necessidade de "zoom")
   ads.setGain(GAIN_TWOTHIRDS); 
 
   // Configuração do MAX30105
   byte ledBrightness = 0x1F; 
   byte sampleAverage = 4;
   byte ledMode = 2; 
-  byte sampleRate = 400; 
+  
+  // CORREÇÃO: Usando 'int' para evitar o overflow do número 400
+  int sampleRate = 400; 
+  
   int pulseWidth = 411;
   int adcRange = 4096;
 
@@ -66,17 +68,24 @@ void loop() {
   uint32_t rawIR = particleSensor.getIR(); 
 
   // ==========================================
-  // TRAVA DE AR (Dedo fora do sensor)
+  // FILTRO DE DISCREPÂNCIA (Dedo ausente ou leitura morta)
   // ==========================================
   if (rawRed < 10000) {
-    digitalWrite(pinoMosfet, LOW); // DESLIGA o LED de 3W para não torrar atoa
+    // Zera os filtros internos para evitar que o ruído contamine as médias móveis
     pulsoDetectado = false;
     subindo = false;
     bpmMedio = 0;
-    return;
+    dcIR = 0;
+    dcGlicose = 0;
+    smoothACIR = 0;
+    smoothACGlicose = 0;
+
+    digitalWrite(pinoMosfet, LOW);
+    
+    // Pula o resto dos cálculos matemáticos até o dedo voltar
+    return; 
   }
 
-  // O dedo está no sensor! LIGA o LED de 3W para atravessar o dedo
   digitalWrite(pinoMosfet, HIGH);
 
   // ==========================================
@@ -87,8 +96,7 @@ void loop() {
   // ==========================================
   // FILTRAGEM DO CANAL DE GLICOSE
   // ==========================================
-  // Assim como o MAX, a luz do LED 3W que passa pelo dedo tem uma 
-  // parcela estática (osso/pele) e uma parcela pulsante (sangue).
+  // A variável inicializa baseada na leitura crua se estava zerada antes
   if (dcGlicose == 0) dcGlicose = rawGlicose;
   dcGlicose = (dcGlicose * 0.95) + (rawGlicose * 0.05);
   
@@ -120,7 +128,7 @@ void loop() {
       if (bpmMedio == 0) bpmMedio = bpmInstantaneo; 
       bpmMedio = (bpmMedio * 0.90) + (bpmInstantaneo * 0.10);
 
-      // Variável de saída para a IA e Teleplot
+      // Variável de saída do Batimento Cardíaco validado
       Serial.print(">BPM:"); Serial.println(bpmMedio);
     }
     
@@ -134,10 +142,16 @@ void loop() {
   // ==========================================
   // SAÍDA DE DADOS (DATASET DA IA)
   // ==========================================
+  Serial.print(">MAX30102_RED:"); Serial.println(rawRed);
+  Serial.print(">MAX30102_IR:"); Serial.println(rawIR);
   Serial.print(">DC_IR:"); Serial.println(dcIR);
   Serial.print(">AC_IR_Limpo:"); Serial.println(smoothACIR);
   
-  // As duas novas features vitais para o modelo PLS estimar a glicose:
+  Serial.print(">BPW34_RAW:"); Serial.println(rawGlicose);
+  Serial.print(">BPW34_DC:"); Serial.println(dcGlicose);
+  Serial.print(">BPW34_AC:"); Serial.println(smoothACGlicose);
   Serial.print(">Transmitancia_DC:"); Serial.println(dcGlicose);
+  
+  // CORREÇÃO: Chave de fechamento adicionada após a última linha!
   Serial.print(">Transmitancia_AC:"); Serial.println(smoothACGlicose);
 }

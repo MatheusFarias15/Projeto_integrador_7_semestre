@@ -1,0 +1,18 @@
+[
+  "bpm",
+  "dc_ir",
+  "ac_ir",
+  "transmitancia_dc",
+  "transmitancia_ac",
+  "transmittance",
+  "absorbance",
+  "ratio_ir_trans",
+  "pulsatile_index",
+  "ir_ratio",
+  "idade",
+  "peso",
+  "altura",
+  "imc",
+  "ultima_refeicao_horas",
+  "atividade_recente"
+]

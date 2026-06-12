@@ -1,0 +1,10 @@
+Abrindo porta serial: COM5 @ 115200
+Enviando leituras legadas para: http://localhost:5000/glucose
+Enviando leituras de sensor para: http://localhost:5000/sensor-reading
+Portas seriais disponíveis:
+  - COM4: Serial Padrão por link Bluetooth (COM4)
+  - COM6: Serial Padrão por link Bluetooth (COM6)
+  - COM3: Serial Padrão por link Bluetooth (COM3)
+  - COM7: Serial Padrão por link Bluetooth (COM7)
+  - COM5: USB-Enhanced-SERIAL CH9102 (COM5)
+Erro na porta serial: ClearCommError failed (PermissionError(13, 'Acesso negado.', None, 5))

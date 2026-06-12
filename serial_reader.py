@@ -143,6 +143,16 @@ def build_payload(sensor_data: dict) -> dict:
     }
 
 
+def is_empty_sensor_packet(sensor_data: dict) -> bool:
+    """Retorna True quando o pacote contem apenas leituras numericas zeradas."""
+    numeric_values = [
+        value
+        for value in sensor_data.values()
+        if isinstance(value, (int, float))
+    ]
+    return bool(numeric_values) and all(value == 0 for value in numeric_values)
+
+
 def send_to_backend(sensor_data: dict) -> None:
     """Envia dados para endpoint legado /glucose."""
     payload = build_payload(sensor_data)
@@ -153,6 +163,11 @@ def send_to_backend(sensor_data: dict) -> None:
 
 def send_sensor_reading(sensor_data: dict) -> None:
     """Envia dados de sensor para novo endpoint /sensor-reading (IA)."""
+    if is_empty_sensor_packet(sensor_data):
+        if DEBUG_SERIAL:
+            print("DEBUG: pacote zerado ignorado")
+        return
+
     payload = build_sensor_payload(sensor_data)
     response = requests.post(BACKEND_SENSOR_URL, json=payload, timeout=10)
     response.raise_for_status()
